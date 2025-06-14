@@ -66,6 +66,7 @@ public abstract class MMU(uint size)
     }
 
     public abstract byte[] Fetch(int pc);
+    public abstract bool HasNextInstruction(int pc);
 }
 
 public class UnifiedMemoryMMU(uint size) : MMU(size)
@@ -75,6 +76,11 @@ public class UnifiedMemoryMMU(uint size) : MMU(size)
         CheckAddressI(pc);
 
         return [Memory[pc], Memory[pc + 1], Memory[pc + 2], Memory[pc + 3]];
+    }
+
+    public override bool HasNextInstruction(int pc)
+    {
+        return pc + 3 < Memory.Length;
     }
 }
 
@@ -100,5 +106,10 @@ public class SegregatedMemoryMMU(byte[] instructions, uint size) : MMU(size)
         }
 
         return [Instructions[pc], Instructions[pc + 1], Instructions[pc + 2], Instructions[pc + 3]];
+    }
+
+    public override bool HasNextInstruction(int pc)
+    {
+        return pc + 3 < Instructions.Length;
     }
 }

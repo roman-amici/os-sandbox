@@ -3,10 +3,9 @@ using OsSandbox.Simulation;
 
 var simpleProgram = new List<Instruction>()
 {
-    new AddN()
+    new SetILow()
     {
         RD = Register.Call1,
-        R1 = Register.Zero,
         Immediate = 5
     },
     new SubN()
@@ -19,8 +18,8 @@ var simpleProgram = new List<Instruction>()
     {
         RA = Register.ProgramCounter,
         RC = Register.Call1,
-        Offset = -2 * 4
-    }
+        Offset = -1
+    },
 };
 
 var buffer = new byte[simpleProgram.Count * 4];
@@ -33,4 +32,4 @@ foreach (var instruction in simpleProgram)
 
 var interpreter = new ByteCodeInterpreter(new(), new SegregatedMemoryMMU(buffer, 1024));
 
-interpreter.Interpret();
+Console.WriteLine(interpreter.Interpret());

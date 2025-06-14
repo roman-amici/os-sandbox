@@ -47,6 +47,7 @@ public enum OpCode
     SetILow,
     SetIHigh,
 
+    Jump,
     JumpZero,
     JumpGT,
 
@@ -85,6 +86,7 @@ public abstract class Instruction
             OpCode.SetILow => new SetILow(inst),
             OpCode.SetIHigh => new SetIHigh(inst),
 
+            OpCode.Jump => new Jump(inst),
             OpCode.JumpZero => new JumpZero(inst),
             OpCode.JumpGT => new JumpGT(inst),
 
@@ -364,7 +366,7 @@ public class LoadI : Instruction
 
     public override OpCode OpCode => OpCode.LoadI;
 
-    // RD = Memory[RA + Offset]
+    // RD = Memory[RA + 4*Offset]
     public Register RD { get; set; }
     public Register RA { get; set; }
     public sbyte Offset { get; set; }
@@ -390,7 +392,7 @@ public class StoreI : Instruction
 
     public override OpCode OpCode => OpCode.StoreI;
 
-    // Memory[RA + Offset] = R1
+    // Memory[RA + 4*Offset] = R1
     public Register R1 { get; set; }
     public Register RA { get; set; }
     public sbyte Offset { get; set; }
@@ -454,6 +456,30 @@ public class SetIHigh : Instruction
 
 }
 
+public class Jump : Instruction
+{
+    public Jump() { }
+
+    public Jump(InstructionContext inst)
+    {
+        RA = DecodeRegister(inst, 1);
+        Offset = DecodeShort(inst, 2);
+    }
+
+    public override OpCode OpCode => OpCode.Jump;
+
+    // PC = RA + 4*Offset
+    public Register RA { get; set; }
+    public short Offset { get; set; }
+
+    public override void Encode(Stream writer)
+    {
+        writer.WriteByte((byte)OpCode);
+        writer.WriteByte((byte)RA);
+        EncodeShort(writer, Offset);
+    }
+}
+
 public class JumpZero : Instruction
 {
     public JumpZero() { }
@@ -468,7 +494,7 @@ public class JumpZero : Instruction
 
     public override OpCode OpCode => OpCode.JumpZero;
 
-    // PC = RA + Offset if RC == 0
+    // PC = RA + 4*Offset if RC == 0
     public Register RA { get; set; }
     public Register RC { get; set; }
     public sbyte Offset { get; set; }
@@ -496,7 +522,7 @@ public class JumpGT : Instruction
 
     public override OpCode OpCode => OpCode.JumpGT;
 
-    // PC = RA + Offset if RC > 0
+    // PC = RA + 4*Offset if RC > 0
     public Register RA { get; set; }
     public Register RC { get; set; }
     public sbyte Offset { get; set; }

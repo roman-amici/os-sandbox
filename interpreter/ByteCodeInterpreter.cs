@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using OsSandbox.Simulation;
 
 namespace OsSandbox.Interpreter;
@@ -12,16 +11,16 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
 
         var inst = Instruction.Decode(new(bytes, cpu.ProgramCounter));
 
-        cpu.ProgramCounter += 4;
-
         return inst;
 
     }
 
-    public void Interpret()
+    public int Interpret()
     {
-        while (true)
+        while (mmu.HasNextInstruction(cpu.ProgramCounter))
         {
+            bool advancePC = true;
+
             switch (NextInstruction())
             {
                 case AddI addi:
@@ -41,18 +40,27 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
                     cpu.Registers[(int)subn.RD] = cpu.Registers[(int)subn.R1] - subn.Immediate;
 
                     break;
+                case Jump jmp:
+                    cpu.ProgramCounter = cpu.Registers[(int)jmp.RA] + 4 * jmp.Offset;
+
+                    advancePC = false;
+                    break;
+                    
                 case JumpZero jz:
                     if (cpu.Registers[(int)jz.RC] == 0)
                     {
-                        var newPC = cpu.Registers[(int)jz.RA] + jz.Offset;
-                        cpu.ProgramCounter = newPC;
+                        cpu.ProgramCounter = cpu.Registers[(int)jz.RA] + 4 * jz.Offset;
+
+                        advancePC = false;
                     }
                     break;
                 case JumpGT jGT:
                     if (cpu.Registers[(int)jGT.RC] > 0)
                     {
-                        var newPC = cpu.Registers[(int)jGT.RA] + jGT.Offset;
+                        var newPC = cpu.Registers[(int)jGT.RA] + 4 * jGT.Offset;
                         cpu.ProgramCounter = newPC;
+
+                        advancePC = false;
                     }
                     break;
                 case SetILow setiLow:
@@ -65,18 +73,25 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
                     break;
 
                 case LoadI loadi:
-                    cpu.Registers[(int)loadi.RD + loadi.Offset] = mmu.GetI(cpu.Registers[(int)loadi.RD]);
+                    cpu.Registers[(int)loadi.RD + 4 * loadi.Offset] = mmu.GetI(cpu.Registers[(int)loadi.RD]);
 
                     break;
 
                 case StoreI storei:
-                    mmu.StoreI(cpu.Registers[(int)storei.RA + storei.Offset], cpu.Registers[(int)storei.R1]);
+                    mmu.StoreI(cpu.Registers[(int)storei.RA + 4 * storei.Offset], cpu.Registers[(int)storei.R1]);
                     break;
                 default:
                     throw new NotImplementedException("Instruction type not implemented");
 
             }
+
+            if (advancePC)
+            {
+                cpu.ProgramCounter += 4;
+            }
         }
+
+        return cpu.Call1;
 
     }
 
