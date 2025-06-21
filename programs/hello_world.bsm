@@ -1,0 +1,14 @@
+addn call1, zero, 1 #Setup the putChar syscall
+addn call2, zero, 72 #H
+syscall
+addn call2, zero, 101 #e
+syscall
+addn call2, zero, 108 #l
+syscall
+addn call2, zero, 108 #l
+syscall
+addn call2, zero, 111 #o
+syscall
+addn call2, zero, 10 #\n
+syscall
+end call1

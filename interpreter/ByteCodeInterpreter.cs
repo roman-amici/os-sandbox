@@ -1,8 +1,9 @@
+using OsSandbox.Kernel;
 using OsSandbox.Simulation;
 
 namespace OsSandbox.Interpreter;
 
-public class ByteCodeInterpreter(CPU cpu, MMU mmu)
+public class ByteCodeInterpreter(CPU cpu, MMU mmu, ManagedKernel kernel)
 {
 
     Instruction NextInstruction()
@@ -17,7 +18,7 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
 
     public int Interpret()
     {
-        while (mmu.HasNextInstruction(cpu.ProgramCounter))
+        while (true)
         {
             bool advancePC = true;
 
@@ -36,16 +37,12 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
                     cpu.Registers[(int)addn.RD] = cpu.Registers[(int)addn.R1] + addn.Immediate;
 
                     break;
-                case SubN subn:
-                    cpu.Registers[(int)subn.RD] = cpu.Registers[(int)subn.R1] - subn.Immediate;
-
-                    break;
                 case Jump jmp:
                     cpu.ProgramCounter = cpu.Registers[(int)jmp.RA] + 4 * jmp.Offset;
 
                     advancePC = false;
                     break;
-                    
+
                 case JumpZero jz:
                     if (cpu.Registers[(int)jz.RC] == 0)
                     {
@@ -63,14 +60,6 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
                         advancePC = false;
                     }
                     break;
-                case SetILow setiLow:
-                    cpu.Registers[(int)setiLow.RD] |= (ushort)setiLow.Immediate;
-
-                    break;
-                case SetIHigh setiHigh:
-                    cpu.Registers[(int)setiHigh.RD] |= (int)((uint)setiHigh.Immediate << 16);
-
-                    break;
 
                 case LoadI loadi:
                     cpu.Registers[(int)loadi.RD + 4 * loadi.Offset] = mmu.GetI(cpu.Registers[(int)loadi.RD]);
@@ -79,6 +68,14 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
 
                 case StoreI storei:
                     mmu.StoreI(cpu.Registers[(int)storei.RA + 4 * storei.Offset], cpu.Registers[(int)storei.R1]);
+                    break;
+
+                case End end:
+                    return cpu.Registers[(int)end.OutRegister];
+
+                case SysCall:
+                    kernel.SysCall(cpu, mmu);
+
                     break;
                 default:
                     throw new NotImplementedException("Instruction type not implemented");
@@ -90,10 +87,5 @@ public class ByteCodeInterpreter(CPU cpu, MMU mmu)
                 cpu.ProgramCounter += 4;
             }
         }
-
-        return cpu.Call1;
-
     }
-
-
 }

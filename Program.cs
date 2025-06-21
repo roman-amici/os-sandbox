@@ -1,35 +1,37 @@
 ﻿using OsSandbox.Interpreter;
+using OsSandbox.Kernel;
 using OsSandbox.Simulation;
 
-var simpleProgram = new List<Instruction>()
+string path;
+if (args.Length == 0)
 {
-    new SetILow()
-    {
-        RD = Register.Call1,
-        Immediate = 5
-    },
-    new SubN()
-    {
-        RD = Register.Call1,
-        R1 = Register.Call1,
-        Immediate = 1,
-    },
-    new JumpGT()
-    {
-        RA = Register.ProgramCounter,
-        RC = Register.Call1,
-        Offset = -1
-    },
-};
+    Console.WriteLine("Usage: [filename]");
+    path = "../../../programs/hello_world.bsm";
 
-var buffer = new byte[simpleProgram.Count * 4];
+    // return;
+}
+else
+{
+    path = Path.GetFullPath(args[0]);
+}
+
+
+List<Instruction> program;
+var assembler = new Assembler();
+using (var programText = File.OpenText(path))
+{
+    program = assembler.Assemble(programText);
+}
+
+var buffer = new byte[program.Count * 4];
 var writer = new MemoryStream(buffer);
 
-foreach (var instruction in simpleProgram)
+foreach (var instruction in program)
 {
     instruction.Encode(writer);
 }
 
-var interpreter = new ByteCodeInterpreter(new(), new SegregatedMemoryMMU(buffer, 1024));
+var kernel = new ManagedKernel();
+var interpreter = new ByteCodeInterpreter(new(), new SegregatedMemoryMMU(buffer, 1024), kernel);
 
 Console.WriteLine(interpreter.Interpret());

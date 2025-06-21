@@ -1,0 +1,5 @@
+addn call2, zero, 5
+addn call2, call2, -1
+addn call1, call1, 1
+jmpgt call2, pc, -2
+end call1

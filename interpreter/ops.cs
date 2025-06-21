@@ -25,14 +25,13 @@ public enum Register
     Call3,
     Call4,
 
-    ProgramCounter,
-    StackPointer,
+    PC,
+    SP,
 }
 
 public enum OpCode
 {
     AddN,
-    SubN,
     MulN,
     DivN,
 
@@ -44,13 +43,13 @@ public enum OpCode
     LoadI,
     StoreI,
 
-    SetILow,
-    SetIHigh,
+    Jmp,
+    JmpZ,
+    JmpGT,
 
-    Jump,
-    JumpZero,
-    JumpGT,
+    End,
 
+    SysCall
 }
 
 public struct InstructionContext(byte[] bytes, int address)
@@ -72,7 +71,6 @@ public abstract class Instruction
         return opCode switch
         {
             OpCode.AddN => new AddN(inst),
-            OpCode.SubN => new SubN(inst),
             OpCode.MulN => new MulN(inst),
             OpCode.DivN => new DivN(inst),
             OpCode.AddI => new AddI(inst),
@@ -83,12 +81,13 @@ public abstract class Instruction
             OpCode.LoadI => new LoadI(inst),
             OpCode.StoreI => new StoreI(inst),
 
-            OpCode.SetILow => new SetILow(inst),
-            OpCode.SetIHigh => new SetIHigh(inst),
+            OpCode.Jmp => new Jump(inst),
+            OpCode.JmpZ => new JumpZero(inst),
+            OpCode.JmpGT => new JumpGT(inst),
 
-            OpCode.Jump => new Jump(inst),
-            OpCode.JumpZero => new JumpZero(inst),
-            OpCode.JumpGT => new JumpGT(inst),
+            OpCode.End => new End(inst),
+
+            OpCode.SysCall => new SysCall(inst),
 
             _ => throw new IllegalInstructionException(inst, "Invalid OpCode")
 
@@ -268,34 +267,6 @@ public class AddN : Instruction
     }
 }
 
-public class SubN : Instruction
-{
-    public SubN() { }
-
-
-    public SubN(InstructionContext inst)
-    {
-        RD = DecodeRegister(inst, 1);
-        R1 = DecodeRegister(inst, 2);
-        Immediate = (sbyte)inst.Bytes[3];
-    }
-
-    public override OpCode OpCode => OpCode.SubN;
-
-    // RD = R1 - Immediate
-    public Register RD { get; set; }
-    public Register R1 { get; set; }
-    public sbyte Immediate { get; set; }
-
-    public override void Encode(Stream writer)
-    {
-        writer.WriteByte((byte)OpCode);
-        writer.WriteByte((byte)RD);
-        writer.WriteByte((byte)R1);
-        writer.WriteByte((byte)Immediate);
-    }
-}
-
 public class MulN : Instruction
 {
     public MulN() { }
@@ -405,57 +376,6 @@ public class StoreI : Instruction
     }
 }
 
-public class SetILow : Instruction
-{
-    public SetILow() { }
-
-    public SetILow(InstructionContext inst)
-    {
-        RD = DecodeRegister(inst, 1);
-        Immediate = DecodeShort(inst, 2);
-    }
-
-    public override OpCode OpCode => OpCode.SetILow;
-
-    // RD = Immediate
-    public Register RD { get; set; }
-    public short Immediate { get; set; }
-
-    public override void Encode(Stream writer)
-    {
-        writer.WriteByte((byte)OpCode);
-        writer.WriteByte((byte)RD);
-        EncodeShort(writer, Immediate);
-    }
-
-}
-
-public class SetIHigh : Instruction
-{
-    public SetIHigh() { }
-
-
-    public SetIHigh(InstructionContext inst)
-    {
-        RD = DecodeRegister(inst, 1);
-        Immediate = DecodeShort(inst, 2);
-    }
-
-    public override OpCode OpCode => OpCode.SetIHigh;
-
-    // RD = (Immediate << 16)
-    public Register RD { get; set; }
-    public short Immediate { get; set; }
-
-    public override void Encode(Stream writer)
-    {
-        writer.WriteByte((byte)OpCode);
-        writer.WriteByte((byte)RD);
-        EncodeShort(writer, Immediate);
-    }
-
-}
-
 public class Jump : Instruction
 {
     public Jump() { }
@@ -466,7 +386,7 @@ public class Jump : Instruction
         Offset = DecodeShort(inst, 2);
     }
 
-    public override OpCode OpCode => OpCode.Jump;
+    public override OpCode OpCode => OpCode.Jmp;
 
     // PC = RA + 4*Offset
     public Register RA { get; set; }
@@ -487,12 +407,12 @@ public class JumpZero : Instruction
 
     public JumpZero(InstructionContext inst)
     {
-        RA = DecodeRegister(inst, 1);
-        RC = DecodeRegister(inst, 2);
+        RC = DecodeRegister(inst, 1);
+        RA = DecodeRegister(inst, 2);
         Offset = (sbyte)inst.Bytes[3];
     }
 
-    public override OpCode OpCode => OpCode.JumpZero;
+    public override OpCode OpCode => OpCode.JmpZ;
 
     // PC = RA + 4*Offset if RC == 0
     public Register RA { get; set; }
@@ -502,8 +422,8 @@ public class JumpZero : Instruction
     public override void Encode(Stream writer)
     {
         writer.WriteByte((byte)OpCode);
-        writer.WriteByte((byte)RA);
         writer.WriteByte((byte)RC);
+        writer.WriteByte((byte)RA);
         writer.WriteByte((byte)Offset);
     }
 
@@ -515,12 +435,12 @@ public class JumpGT : Instruction
 
     public JumpGT(InstructionContext inst)
     {
-        RA = DecodeRegister(inst, 1);
-        RC = DecodeRegister(inst, 2);
+        RC = DecodeRegister(inst, 1);
+        RA = DecodeRegister(inst, 2);
         Offset = (sbyte)inst.Bytes[3];
     }
 
-    public override OpCode OpCode => OpCode.JumpGT;
+    public override OpCode OpCode => OpCode.JmpGT;
 
     // PC = RA + 4*Offset if RC > 0
     public Register RA { get; set; }
@@ -530,9 +450,54 @@ public class JumpGT : Instruction
     public override void Encode(Stream writer)
     {
         writer.WriteByte((byte)OpCode);
-        writer.WriteByte((byte)RA);
         writer.WriteByte((byte)RC);
+        writer.WriteByte((byte)RA);
         writer.WriteByte((byte)Offset);
+    }
+
+}
+
+public class End : Instruction
+{
+    public End()
+    {
+
+    }
+
+    public End(InstructionContext inst)
+    {
+        OutRegister = DecodeRegister(inst, 1);
+    }
+
+    public override OpCode OpCode => OpCode.End;
+
+    public Register OutRegister { get; set; }
+
+    public override void Encode(Stream writer)
+    {
+        writer.WriteByte((byte)OpCode);
+        writer.WriteByte((byte)OutRegister);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+    }
+}
+
+public class SysCall : Instruction
+{
+    public SysCall() { }
+
+    public SysCall(InstructionContext inst)
+    {
+    }
+
+    public override OpCode OpCode => OpCode.SysCall;
+
+    public override void Encode(Stream writer)
+    {
+        writer.WriteByte((byte)OpCode);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
     }
 
 }
